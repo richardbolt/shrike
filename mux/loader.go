@@ -2,6 +2,7 @@ package mux
 
 import (
 	"net/http"
+	"net/url"
 
 	"hal/routes"
 
@@ -16,7 +17,7 @@ type (
 	// Config holds information about config loading.
 	Config struct {
 		// DownstreamProxyURL is where we proxy requests and where we route requests via the Toxy.
-		DownstreamProxyURL string
+		DownstreamProxyURL url.URL
 		// ToxyAddress is the ip or DNS address of your ToxyProxy instance.
 		ToxyAddress string
 	}
@@ -52,20 +53,16 @@ func New(c *Config) *http.ServeMux {
 	r := chi.NewRouter()
 	// Chain HTTP Middleware
 	r.Use(middleware.Heartbeat("/ping"))
+	log.Debug("/ping middleware loaded into mux.")
+
 	r.Use(middleware.RequestID)
 	log.Debug("RequestID middleware loaded into mux.")
+
 	r.Use(middleware.Recoverer)
 	log.Debug("Recoverer middleware loaded into mux.")
+
 	r.Use(lg.RequestLogger(logger))
 	log.Debug("RequestLogger middleware loaded into mux.")
-
-	/*
-		// Set a timeout value on the request context (ctx), that will signal
-		// through ctx.Done() that the request has timed out and further
-		// processing should be stopped.
-		r.Use(middleware.Timeout(60 * time.Second))
-		log.Debug("Timeout middleware loaded into mux with a 60 second timeout.")
-	*/
 
 	r.Use(routes.NewConfigMW(c.ToxyAddress, c.DownstreamProxyURL))
 	log.Debug("NewConfigMW middleware loaded into mux.")

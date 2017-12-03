@@ -22,13 +22,12 @@ func GetHostFor(req *http.Request) *url.URL {
 }
 
 // NewConfigMW returns a middleware with a Config on the context.
-func NewConfigMW(toxy, downstream string) func(http.Handler) http.Handler {
+func NewConfigMW(toxy string, downstream url.URL) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			d, _ := url.Parse(downstream)
 			next.ServeHTTP(res, req.WithContext(
 				ContextWithConfig(req.Context(), Config{
-					DownstreamProxyURL: *d,
+					DownstreamProxyURL: downstream,
 					ToxyAddress:        toxy,
 				}),
 			))

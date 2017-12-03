@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 
 	"hal/cfg"
 	"hal/mux"
@@ -22,8 +23,13 @@ func main() {
 	lg.RedirectStdlogOutput(logger)
 	lg.DefaultLogger = logger
 
+	d, err := url.Parse(cfg.DownstreamProxyURL)
+	if err != nil {
+		logger.Fatalf("DOWNSTREAM_PROXY_URL must be a valid URI: %s", err)
+	}
+
 	mux.ServeMux(func(c *mux.Config) {
-		c.DownstreamProxyURL = cfg.DownstreamProxyURL
+		c.DownstreamProxyURL = *d
 		c.ToxyAddress = cfg.ToxyAddress
 	})
 

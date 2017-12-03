@@ -1,0 +1,4 @@
+.vscode/
+*.coverprofile
+*.swp
+bin/server

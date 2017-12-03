@@ -3,13 +3,13 @@ package mux
 import (
 	"net/http"
 
-	"hal/fwd"
 	"hal/routes"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pressly/lg"
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcand/oxy/forward"
 )
 
 type (
@@ -37,8 +37,8 @@ func ServeMux(options ...Option) {
 
 // New returns a new ServeMux to replace swap out when a new configuration is loaded.
 func New(c *Config) *http.ServeMux {
-	// Create a new Forwarder and ServeMux
-	proxy, err := fwd.New()
+	// Forwards incoming requests to whatever location URL points to, adds proper forwarding headers
+	fwd, err := forward.New()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
@@ -47,8 +47,6 @@ func New(c *Config) *http.ServeMux {
 
 	// Logger setup, including redirect of stdout to logger.
 	logger := log.New()
-	//lg.RedirectStdlogOutput(logger)
-	//lg.DefaultLogger = logger
 
 	mux := http.NewServeMux()
 	r := chi.NewRouter()
@@ -71,6 +69,13 @@ func New(c *Config) *http.ServeMux {
 
 	r.Use(routes.NewConfigMW(c.ToxyAddress, c.DownstreamProxyURL))
 	log.Debug("NewConfigMW middleware loaded into mux.")
+
+	proxy := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// TODO: Here is where we set the url and port to go to.
+		// Either the Toxy or the downstream address.
+		req.URL = routes.GetHostFor(req)
+		fwd.ServeHTTP(w, req)
+	})
 
 	// The primary handler.
 	r.Handle("/*", proxy)

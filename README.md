@@ -1,7 +1,7 @@
 The Shrike
 ==========
 
-The Shrike is a Layer 7 Chaos HTTP/WebSocket proxy that impales it's victims on the Tree of Pain. The Tree of Pain for this Shrike takes the form of [Toxiproxy](http://toxiproxy.io) an excellent TCP network tampering tool.
+The Shrike is a Layer 7 Chaos HTTP/WebSocket proxy that impales it's victims on the Tree of Pain. The Tree of Pain for this Shrike takes the form of [Toxiproxy](http://toxiproxy.io), an excellent TCP network tampering tool.
 
 The Shrike has an API to route http path based traffic through a [Toxiproxy](http://toxiproxy.io) server for resliliency testing and on to a downstream server.
 

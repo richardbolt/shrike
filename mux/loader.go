@@ -62,7 +62,7 @@ func ServeMux(options ...Option) {
 		}
 		sort.Strings(names)
 		hash := strings.Join(names, "")
-		if hash != prevHash {
+		if hash == "" || hash != prevHash {
 			prevHash = hash
 			http.DefaultServeMux = New(c)
 		}

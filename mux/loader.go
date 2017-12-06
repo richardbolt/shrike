@@ -1,11 +1,16 @@
 package mux
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
+	"strings"
+	"time"
 
-	"hal/routes"
+	"shrike/routes"
 
+	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pressly/lg"
@@ -20,12 +25,23 @@ type (
 		DownstreamProxyURL url.URL
 		// ToxyAddress is the ip or DNS address of your ToxyProxy instance.
 		ToxyAddress string
+		// ToxyAPIPort is the port that api calls to Toxiproxy are made to.
+		ToxyAPIPort int
+		// ToxyNamePathSeparator is the string used to sub with / for storing path info sans slashes in Toxiproxy
+		ToxyNamePathSeparator string
+		// Toxiproxy client
+		ToxyClient *toxy.Client
 	}
 	// Option allows for configuration.
 	Option func(c *Config)
 )
 
+func (c *Config) ToxyAPIAddress() string {
+	return fmt.Sprintf("%s:%d", c.ToxyAddress, c.ToxyAPIPort)
+}
+
 // ServeMux sets a new mux to http.DefaultServeMux
+// Loops over
 func ServeMux(options ...Option) {
 	c := &Config{}
 
@@ -33,7 +49,25 @@ func ServeMux(options ...Option) {
 		o(c)
 	}
 
-	http.DefaultServeMux = New(c)
+	prevHash := ""
+	for {
+		proxies, err := c.ToxyClient.Proxies()
+		if err != nil {
+			log.Error(err)
+			time.Sleep(1 * time.Second)
+		}
+		names := []string{}
+		for proxyName := range proxies {
+			names = append(names, proxyName)
+		}
+		sort.Strings(names)
+		hash := strings.Join(names, "")
+		if hash != prevHash {
+			prevHash = hash
+			http.DefaultServeMux = New(c)
+		}
+		time.Sleep(10)
+	}
 }
 
 // New returns a new ServeMux to replace swap out when a new configuration is loaded.
@@ -45,6 +79,14 @@ func New(c *Config) *http.ServeMux {
 			"error": err,
 		}).Error("Failed to create a new proxy forwarder.")
 	}
+	store := routes.NewProxyStore(c.DownstreamProxyURL, c.ToxyNamePathSeparator, c.ToxyClient)
+	rootProxyName := routes.ProxyNameFrom(c.ToxyNamePathSeparator, "/")
+	_, _ = c.ToxyClient.CreateProxy(
+		rootProxyName,
+		fmt.Sprintf("%s:%d", c.ToxyAddress, routes.NumFrom(rootProxyName)),
+		c.DownstreamProxyURL.Host,
+	)
+	_ = store.Populate()
 
 	// Logger setup, including redirect of stdout to logger.
 	logger := log.New()
@@ -64,13 +106,13 @@ func New(c *Config) *http.ServeMux {
 	r.Use(lg.RequestLogger(logger))
 	log.Debug("RequestLogger middleware loaded into mux.")
 
-	r.Use(routes.NewConfigMW(c.ToxyAddress, c.DownstreamProxyURL))
-	log.Debug("NewConfigMW middleware loaded into mux.")
-
 	proxy := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// TODO: Here is where we set the url and port to go to.
-		// Either the Toxy or the downstream address.
-		req.URL = routes.GetHostFor(req)
+		// Either a proxy on the Toxy or the vanilla downstream address.
+		if u, m := store.Match(req.URL.Path); m {
+			req.URL = &u
+		} else {
+			req.URL = &c.DownstreamProxyURL
+		}
 		fwd.ServeHTTP(w, req)
 	})
 

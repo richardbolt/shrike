@@ -1,9 +1,9 @@
-HAL
-===
+The Shrike
+==========
 
-HAL is a Layer 7 HTTP/WebSocket proxy designed to sit in front of both a downstream server and a [Toxiproxy](https://github.com/Shopify/toxiproxy) Layer 4 network tampering tool. HAL routes explicitly tampered traffic through the Toxiproxy server to the downstream server.
+The Shrike is a Layer 7 Chaos HTTP/WebSocket proxy that impales it's victims on the Tree of Pain. The Tree of Pain for this Shrike takes the form of [Toxiproxy](http://toxiproxy.io) an excellent TCP network tampering tool.
 
-HAL has an API to route http path based traffic through a [Toxiproxy](https://github.com/Shopify/toxiproxy) server for resliliency testing and on to the downstream server. The HAL API abstracts the Toxiproxy API seamlessly.
+The Shrike has an API to route http path based traffic through a [Toxiproxy](http://toxiproxy.io) server for resliliency testing and on to a downstream server.
 
 Develop
 -------
@@ -49,7 +49,7 @@ Environment Variables
 
 `API_PORT` is the listen listen port to bind to on the host. Defaults to `8075`.
 
-`TOXY_ADDRESS` is the IP or DNS address or your [Toxiproxy](https://github.com/Shopify/toxiproxy) server. Defaults to `"127.0.0.1"`.
+`TOXY_ADDRESS` is the IP or DNS address or your [Toxiproxy](http://toxiproxy.io) server. Defaults to `"127.0.0.1"`.
 
 `DOWNSTREAM_PROXY_URL` is the downstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
 

@@ -6,9 +6,11 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 
-	"hal/cfg"
-	"hal/mux"
+	"shrike/api"
+	"shrike/cfg"
+	"shrike/mux"
 
+	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/pressly/lg"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,9 +30,12 @@ func main() {
 		logger.Fatalf("DOWNSTREAM_PROXY_URL must be a valid URI: %s", err)
 	}
 
-	mux.ServeMux(func(c *mux.Config) {
+	go mux.ServeMux(func(c *mux.Config) {
 		c.DownstreamProxyURL = *d
 		c.ToxyAddress = cfg.ToxyAddress
+		c.ToxyAPIPort = cfg.ToxyAPIPort
+		c.ToxyNamePathSeparator = cfg.ToxyNamePathSeparator
+		c.ToxyClient = toxy.NewClient(c.ToxyAPIAddress())
 	})
 
 	log.WithFields(log.Fields{
@@ -41,12 +46,13 @@ func main() {
 		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
 	}()
 
+	apiMux := api.New(cfg.ToxyNamePathSeparator, cfg.ToxyAddress, toxy.NewClient(cfg.ToxyAPIAddress()))
 	log.WithFields(log.Fields{
 		"host": cfg.Host,
 		"port": cfg.APIPort,
 	}).Info("API HTTP server starting")
 	go func() {
-		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
+		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), apiMux)
 	}()
 
 	log.Fatal(<-errc)

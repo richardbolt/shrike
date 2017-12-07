@@ -46,7 +46,15 @@ func main() {
 		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
 	}()
 
-	apiMux := api.New(cfg.ToxyNamePathSeparator, cfg.ToxyAddress, toxy.NewClient(cfg.ToxyAPIAddress()))
+	c := mux.Config{
+		DownstreamProxyURL:    *d,
+		ToxyAddress:           cfg.ToxyAddress,
+		ToxyAPIPort:           cfg.ToxyAPIPort,
+		ToxyNamePathSeparator: cfg.ToxyNamePathSeparator,
+	}
+	c.ToxyClient = toxy.NewClient(c.ToxyAPIAddress())
+
+	apiMux := api.New(c)
 	log.WithFields(log.Fields{
 		"host": cfg.Host,
 		"port": cfg.APIPort,

@@ -66,14 +66,13 @@ func (s *ProxyStore) Match(path string) (url.URL, bool) {
 		return s.root, false
 	}
 	proxy := p.(*toxy.Proxy)
-	if proxy.Enabled {
-		if u, err := url.Parse(fmt.Sprintf("http://%s", proxy.Listen)); err == nil {
-			return *u, true
-		}
+	if u, err := url.Parse(fmt.Sprintf("http://%s", proxy.Listen)); err == nil {
+		return *u, true
 	}
 	return s.root, false
 }
 
+// Populate the store with the proxy information and matchers
 func (s *ProxyStore) Populate() error {
 	proxies, err := s.client.Proxies()
 	if err != nil {

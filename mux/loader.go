@@ -49,7 +49,7 @@ func ServeMux(options ...Option) {
 		o(c)
 	}
 
-	prevHash := ""
+	var prevHash *string
 	for {
 		proxies, err := c.ToxyClient.Proxies()
 		if err != nil {
@@ -61,13 +61,19 @@ func ServeMux(options ...Option) {
 			names = append(names, proxyName)
 		}
 		sort.Strings(names)
-		hash := strings.Join(names, "")
-		if hash == "" || hash != prevHash {
+		var hash *string
+		hash = ptr(strings.Join(names, ""))
+		if prevHash == nil || hash != prevHash {
 			prevHash = hash
 			http.DefaultServeMux = New(c)
 		}
 		time.Sleep(10)
 	}
+}
+
+// ptr to a string
+func ptr(s string) *string {
+	return &s
 }
 
 // New returns a new ServeMux to replace swap out when a new configuration is loaded.
@@ -80,12 +86,6 @@ func New(c *Config) *http.ServeMux {
 		}).Error("Failed to create a new proxy forwarder.")
 	}
 	store := routes.NewProxyStore(c.DownstreamProxyURL, c.ToxyNamePathSeparator, c.ToxyClient)
-	rootProxyName := routes.ProxyNameFrom(c.ToxyNamePathSeparator, "/")
-	_, _ = c.ToxyClient.CreateProxy(
-		rootProxyName,
-		fmt.Sprintf("%s:%d", c.ToxyAddress, routes.NumFrom(rootProxyName)),
-		c.DownstreamProxyURL.Host,
-	)
 	_ = store.Populate()
 
 	// Logger setup, including redirect of stdout to logger.

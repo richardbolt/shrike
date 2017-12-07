@@ -1,10 +1,6 @@
 package cfg
 
-import (
-	"fmt"
-
-	"github.com/kelseyhightower/envconfig"
-)
+import "github.com/kelseyhightower/envconfig"
 
 // Env represents the possible environment variable config params.
 type Env struct {
@@ -15,10 +11,6 @@ type Env struct {
 	ToxyAPIPort           int    `envconfig:"TOXY_API_PORT" default:"8474"`
 	ToxyNamePathSeparator string `envconfig:"TOXY_SEPARATOR" default:"__"`
 	DownstreamProxyURL    string `envconfig:"DOWNSTREAM_PROXY_URL" default:"http://localhost"`
-}
-
-func (e *Env) ToxyAPIAddress() string {
-	return fmt.Sprintf("%s:%d", e.ToxyAddress, e.ToxyAPIPort)
 }
 
 // New returns a new configuration, populated from environment variables and/or defaults.

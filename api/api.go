@@ -9,6 +9,7 @@ import (
 	"shrike/mux"
 	"shrike/routes"
 
+	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pressly/lg"
@@ -33,6 +34,8 @@ func New(cfg mux.Config) *http.ServeMux {
 	r.Use(lg.RequestLogger(logger))
 	log.Debug("RequestLogger middleware loaded into mux.")
 
+	r.Get("/routes", GetProxiesWith(cfg))
+
 	r.Post("/routes", AddProxyWith(cfg))
 
 	r.Delete("/routes/{route}", DeleteRouteWith(cfg))
@@ -44,6 +47,40 @@ func New(cfg mux.Config) *http.ServeMux {
 // Route holds information about the routing of this request
 type Route struct {
 	Path string `json:"path"`
+}
+
+// RouteWithProxy has the proxy and path information to show clients
+type RouteWithProxy struct {
+	Path string      `json:"path"`
+	Toxy *toxy.Proxy `json:"toxy"`
+}
+
+// GetProxiesWith gets proxies from Toxiproxy. Basically just wraps the ToxiProxy data for now.
+// Intended to show the actual path that will match as well
+func GetProxiesWith(cfg mux.Config) func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		proxies, err := cfg.ToxyClient.Proxies()
+		if err != nil {
+			log.WithField("err", err).Error("Error getting proxies")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"status": "Server Error", "message": "Could not create the path entry."}`))
+			return
+		}
+
+		routeMap := map[string]RouteWithProxy{}
+		for k, v := range proxies {
+			path := routes.PathNameFrom(cfg.ToxyNamePathSeparator, k)
+			routeMap[k] = RouteWithProxy{
+				Path: path,
+				Toxy: v,
+			}
+		}
+
+		b, _ := json.Marshal(routeMap)
+		w.Write(b)
+	}
 }
 
 // AddProxyWith cfg to Toxiproxy.

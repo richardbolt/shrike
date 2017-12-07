@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"shrike/mux"
-	"shrike/routes"
+	"github.com/richardbolt/shrike/mux"
+	"github.com/richardbolt/shrike/routes"
 
 	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/go-chi/chi"

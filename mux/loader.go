@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"shrike/routes"
+	"github.com/richardbolt/shrike/routes"
 
 	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/go-chi/chi"

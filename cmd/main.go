@@ -6,9 +6,9 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 
-	"shrike/api"
-	"shrike/cfg"
-	"shrike/mux"
+	"github.com/richardbolt/shrike/api"
+	"github.com/richardbolt/shrike/cfg"
+	"github.com/richardbolt/shrike/mux"
 
 	toxy "github.com/Shopify/toxiproxy/client"
 	"github.com/pressly/lg"

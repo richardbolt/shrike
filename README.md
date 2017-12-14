@@ -9,6 +9,32 @@ The Shrike currently assumes you've put it close at the edge of your service sta
 
 Path prefix matching is used to route differing paths for testing while unmatched paths are sent straight on to the gateway.
 
+Configuration
+-------------
+
+Configuration is by both environment variables and command line flags with command line flags taking precedence.
+
+### Command line flags
+
+`-host` is the address to bind to on the host. Defaults to `0.0.0.0`.
+
+`-port` is the proxy forwarder listen port to bind to on the host. Defaults to `8080`.
+
+`-apiport` is the api listen port to bind to on the host. Defaults to `8075`.
+
+`-upstream` is the upstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
+
+
+### Environment Variables
+
+`HOST` is the address to bind to on the host. Defaults to `0.0.0.0`.
+
+`PORT` is the proxy forwarder listen port to bind to on the host. Defaults to `8080`.
+
+`API_PORT` is the api listen port to bind to on the host. Defaults to `8075`.
+
+`UPSTREAM_URL` is the upstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
+
 Develop
 -------
 
@@ -46,15 +72,3 @@ Run the test suites without Ginkgo (less awesome output, no randomization of tes
 make test
 ```
 
-Environment Variables
----------------------
-
-`HOST` is the address to bind to on the host. Defaults to `0.0.0.0`.
-
-`PORT` is the proxy forwarder listen port to bind to on the host. Defaults to `8080`.
-
-`API_PORT` is the api listen port to bind to on the host. Defaults to `8075`.
-
-`UPSTREAM_URL` is the upstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
-
-Full config in `cfg/env.go`.

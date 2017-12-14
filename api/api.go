@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pressly/lg"
-	"github.com/richardbolt/shrike/routes"
+	"github.com/richardbolt/shrike/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcand/oxy/forward"
 )
@@ -38,7 +38,7 @@ func New(c Config) *ShrikeServer {
 		fwd:        fwd,
 		upstream:   d,
 		toxiproxy:  toxiproxy.NewServer(),
-		ProxyStore: routes.NewProxyStore(*d, c.ToxyNamePathSeparator),
+		ProxyStore: store.NewProxyStore(*d, c.ToxyNamePathSeparator),
 	}
 }
 
@@ -86,7 +86,7 @@ type ShrikeServer struct {
 	upstream   *url.URL
 	toxiproxy  *toxiproxy.ApiServer
 	fwd        *forward.Forwarder
-	ProxyStore *routes.ProxyStore
+	ProxyStore *store.ProxyStore
 }
 
 // Listen on all the appropriate ports
@@ -169,7 +169,7 @@ func (s *ShrikeServer) GetProxies(w http.ResponseWriter, req *http.Request) {
 	proxyEntries := s.ProxyStore.ToMap()
 	routeMap := map[string]RouteWithProxy{}
 	for k := range proxyEntries {
-		toxy := proxies[routes.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, k)]
+		toxy := proxies[store.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, k)]
 		if toxy == nil {
 			log.WithField("path", k).Warn("No proxy entry found in Toxiproxy.")
 			continue
@@ -201,10 +201,10 @@ func (s *ShrikeServer) AddProxy(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	proxyName := routes.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, doc.Prefix)
+	proxyName := store.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, doc.Prefix)
 	proxy, err := s.client.CreateProxy(
 		proxyName,
-		fmt.Sprintf("%s:%d", s.cfg.ToxyAddress, routes.NumFrom(proxyName)),
+		fmt.Sprintf("%s:%d", s.cfg.ToxyAddress, store.NumFrom(proxyName)),
 		s.upstream.Host,
 	)
 	if err != nil {
@@ -251,7 +251,7 @@ func (s *ShrikeServer) GetRoute(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if p := s.ProxyStore.Get(routes.PathNameFrom(s.cfg.ToxyNamePathSeparator, route)); p == nil {
+	if p := s.ProxyStore.Get(store.PathNameFrom(s.cfg.ToxyNamePathSeparator, route)); p == nil {
 		log.WithFields(log.Fields{
 			"Route": route,
 			"err":   err,
@@ -265,7 +265,7 @@ func (s *ShrikeServer) GetRoute(w http.ResponseWriter, req *http.Request) {
 
 	b, _ := json.Marshal(RouteWithProxy{
 		Route: Route{
-			Prefix: routes.PathNameFrom(s.cfg.ToxyNamePathSeparator, route),
+			Prefix: store.PathNameFrom(s.cfg.ToxyNamePathSeparator, route),
 		},
 		Toxy: toxy,
 	})

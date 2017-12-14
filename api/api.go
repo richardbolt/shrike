@@ -38,7 +38,7 @@ func New(c Config) *ShrikeServer {
 		fwd:        fwd,
 		upstream:   d,
 		toxiproxy:  toxiproxy.NewServer(),
-		ProxyStore: store.NewProxyStore(*d, c.ToxyPathSeparator),
+		ProxyStore: store.New(*d, c.ToxyPathSeparator),
 	}
 }
 

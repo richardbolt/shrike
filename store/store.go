@@ -10,30 +10,14 @@ import (
 	"github.com/armon/go-radix"
 )
 
-// NumFrom string to map a path or proxy name to a port number.
-// The number returned will be in the range min < x < 65536
-func NumFrom(s string) uint16 {
-	var min uint16 = 10000
-	x := uint16(adler32.Checksum([]byte(s)) / 65536)
-	if x < min {
-		for {
-			x = x * 2
-			if x > min {
-				break
-			}
-		}
+// New returns a store of proxies.
+// Proxies are stored by path even though proxies are named sans forward slashes.
+func New(root url.URL, sep string) *ProxyStore {
+	return &ProxyStore{
+		root: root,
+		sep:  sep,
+		tree: radix.New(),
 	}
-	return x
-}
-
-// ProxyNameFrom returns the proxy name normalized from str
-func ProxyNameFrom(sep, str string) string {
-	return strings.Replace(str, "/", sep, -1)
-}
-
-// PathNameFrom returns the path name from proxy name str
-func PathNameFrom(sep, str string) string {
-	return strings.Replace(str, sep, "/", -1)
 }
 
 // ProxyStore stores our proxies in an efficient fashion for path prefix matching
@@ -84,12 +68,28 @@ func (s *ProxyStore) Match(path string) (url.URL, bool) {
 	return s.root, false
 }
 
-// NewProxyStore returns a store of proxies.
-// Proxies are stored by path even though proxies are named sans forward slashes.
-func NewProxyStore(root url.URL, sep string) *ProxyStore {
-	return &ProxyStore{
-		root: root,
-		sep:  sep,
-		tree: radix.New(),
+// NumFrom string to map a path or proxy name to a port number.
+// The number returned will be in the range min < x < 65536
+func NumFrom(s string) uint16 {
+	var min uint16 = 10000
+	x := uint16(adler32.Checksum([]byte(s)) / 65536)
+	if x < min {
+		for {
+			x = x * 2
+			if x > min {
+				break
+			}
+		}
 	}
+	return x
+}
+
+// ProxyNameFrom returns the proxy name normalized from str
+func ProxyNameFrom(sep, str string) string {
+	return strings.Replace(str, "/", sep, -1)
+}
+
+// PathNameFrom returns the path name from proxy name str
+func PathNameFrom(sep, str string) string {
+	return strings.Replace(str, sep, "/", -1)
 }

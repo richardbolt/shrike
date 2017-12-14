@@ -29,13 +29,13 @@ func main() {
 	flag.Parse()
 
 	server := api.New(api.Config{
-		Host:                  host,
-		Port:                  port,
-		APIPort:               apiPort,
-		ToxyAddress:           "127.0.0.1",
-		ToxyAPIPort:           8474,
-		ToxyNamePathSeparator: "__",
-		UpstreamURL:           upstreamURL,
+		Host:              host,
+		Port:              port,
+		APIPort:           apiPort,
+		ToxyAddress:       "127.0.0.1",
+		ToxyAPIPort:       8474,
+		ToxyPathSeparator: "__",
+		UpstreamURL:       upstreamURL,
 	})
 
 	server.Listen()

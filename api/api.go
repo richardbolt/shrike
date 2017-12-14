@@ -38,19 +38,19 @@ func New(c Config) *ShrikeServer {
 		fwd:        fwd,
 		upstream:   d,
 		toxiproxy:  toxiproxy.NewServer(),
-		ProxyStore: store.NewProxyStore(*d, c.ToxyNamePathSeparator),
+		ProxyStore: store.NewProxyStore(*d, c.ToxyPathSeparator),
 	}
 }
 
 // Config for ShrikeServer
 type Config struct {
-	Host                  string
-	Port                  int
-	APIPort               int
-	ToxyAddress           string
-	ToxyAPIPort           int
-	ToxyNamePathSeparator string
-	UpstreamURL           string
+	Host              string
+	Port              int
+	APIPort           int
+	ToxyAddress       string
+	ToxyAPIPort       int
+	ToxyPathSeparator string
+	UpstreamURL       string
 }
 
 // Route holds information about the routing of a request
@@ -169,7 +169,7 @@ func (s *ShrikeServer) GetProxies(w http.ResponseWriter, req *http.Request) {
 	proxyEntries := s.ProxyStore.ToMap()
 	routeMap := map[string]RouteWithProxy{}
 	for k := range proxyEntries {
-		toxy := proxies[store.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, k)]
+		toxy := proxies[store.ProxyNameFrom(s.cfg.ToxyPathSeparator, k)]
 		if toxy == nil {
 			log.WithField("path", k).Warn("No proxy entry found in Toxiproxy.")
 			continue
@@ -201,7 +201,7 @@ func (s *ShrikeServer) AddProxy(w http.ResponseWriter, req *http.Request) {
 		})
 		return
 	}
-	proxyName := store.ProxyNameFrom(s.cfg.ToxyNamePathSeparator, doc.Prefix)
+	proxyName := store.ProxyNameFrom(s.cfg.ToxyPathSeparator, doc.Prefix)
 	proxy, err := s.client.CreateProxy(
 		proxyName,
 		fmt.Sprintf("%s:%d", s.cfg.ToxyAddress, store.NumFrom(proxyName)),
@@ -251,7 +251,7 @@ func (s *ShrikeServer) GetRoute(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if p := s.ProxyStore.Get(store.PathNameFrom(s.cfg.ToxyNamePathSeparator, route)); p == nil {
+	if p := s.ProxyStore.Get(store.PathNameFrom(s.cfg.ToxyPathSeparator, route)); p == nil {
 		log.WithFields(log.Fields{
 			"Route": route,
 			"err":   err,
@@ -265,7 +265,7 @@ func (s *ShrikeServer) GetRoute(w http.ResponseWriter, req *http.Request) {
 
 	b, _ := json.Marshal(RouteWithProxy{
 		Route: Route{
-			Prefix: store.PathNameFrom(s.cfg.ToxyNamePathSeparator, route),
+			Prefix: store.PathNameFrom(s.cfg.ToxyPathSeparator, route),
 		},
 		Toxy: toxy,
 	})

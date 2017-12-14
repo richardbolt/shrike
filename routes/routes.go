@@ -10,16 +10,6 @@ import (
 	"github.com/armon/go-radix"
 )
 
-// Config information.
-type Config struct {
-	// DownstreamProxyURL is where we proxy requests and where we route requests via the Toxy.
-	DownstreamProxyURL url.URL
-	// ToxyAddress is the ip or DNS address of your ToxyProxy instance.
-	ToxyAddress string
-	// ToxyNamePathSeparator is the string used to sub with / for storing path info sans slashes in Toxiproxy
-	ToxyNamePathSeparator string
-}
-
 // NumFrom string to map a path or proxy name to a port number.
 // The number returned will be in the range min < x < 65536
 func NumFrom(s string) uint16 {
@@ -48,15 +38,37 @@ func PathNameFrom(sep, str string) string {
 
 // ProxyStore stores our proxies in an efficient fashion for path prefix matching
 type ProxyStore struct {
-	client *toxy.Client
-	root   url.URL
-	sep    string
-	tree   *radix.Tree
+	root url.URL
+	sep  string
+	tree *radix.Tree
 }
 
-// Add a proxy at path
+// Add a proxy
 func (s *ProxyStore) Add(proxy *toxy.Proxy) {
 	s.tree.Insert(PathNameFrom(s.sep, proxy.Name), proxy)
+}
+
+// Get a proxy by path prefix
+func (s *ProxyStore) Get(path string) *toxy.Proxy {
+	p, m := s.tree.Get(path)
+	if m == false {
+		return nil
+	}
+	return p.(*toxy.Proxy)
+}
+
+// Delete a proxy
+func (s *ProxyStore) Delete(proxy *toxy.Proxy) {
+	s.tree.Delete(PathNameFrom(s.sep, proxy.Name))
+}
+
+// ToMap returns the Proxy store entries as a map of proxies
+func (s *ProxyStore) ToMap() map[string]*toxy.Proxy {
+	proxies := map[string]*toxy.Proxy{}
+	for k, v := range s.tree.ToMap() {
+		proxies[k] = v.(*toxy.Proxy)
+	}
+	return proxies
 }
 
 // Match returns a url.URL and a boolean to indicate whether we matched or are using the default.
@@ -72,25 +84,12 @@ func (s *ProxyStore) Match(path string) (url.URL, bool) {
 	return s.root, false
 }
 
-// Populate the store with the proxy information and matchers
-func (s *ProxyStore) Populate() error {
-	proxies, err := s.client.Proxies()
-	if err != nil {
-		return err
-	}
-	for _, proxy := range proxies {
-		s.Add(proxy)
-	}
-	return nil
-}
-
 // NewProxyStore returns a store of proxies.
 // Proxies are stored by path even though proxies are named sans forward slashes.
-func NewProxyStore(root url.URL, sep string, client *toxy.Client) *ProxyStore {
+func NewProxyStore(root url.URL, sep string) *ProxyStore {
 	return &ProxyStore{
-		root:   root,
-		sep:    sep,
-		tree:   radix.New(),
-		client: client,
+		root: root,
+		sep:  sep,
+		tree: radix.New(),
 	}
 }

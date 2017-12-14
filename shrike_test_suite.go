@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestEdgy(t *testing.T) {
+func TestShrike(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HAL Suite")
+	RunSpecs(t, "Shrike Suite")
 }

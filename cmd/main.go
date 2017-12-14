@@ -1,67 +1,42 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"flag"
 	_ "net/http/pprof"
-	"net/url"
 
+	"github.com/pressly/lg"
 	"github.com/richardbolt/shrike/api"
 	"github.com/richardbolt/shrike/cfg"
-	"github.com/richardbolt/shrike/mux"
-
-	toxy "github.com/Shopify/toxiproxy/client"
-	"github.com/pressly/lg"
 	log "github.com/sirupsen/logrus"
 )
 
+var host string
+var port int
+var apiPort int
+var upstreamURL string
+
 func main() {
-	cfg := cfg.New()
-
-	errc := make(chan error)
-
-	// Logger setup, including redirect of stdout to logger.
+	// Redirect stdout to logrus.
 	logger := log.New()
 	lg.RedirectStdlogOutput(logger)
 	lg.DefaultLogger = logger
 
-	d, err := url.Parse(cfg.DownstreamProxyURL)
-	if err != nil {
-		logger.Fatalf("DOWNSTREAM_PROXY_URL must be a valid URI: %s", err)
-	}
+	cfg := cfg.New()
+	flag.StringVar(&host, "host", cfg.Host, "Host for The Shrike to listen on")
+	flag.IntVar(&port, "port", cfg.Port, "Port for The Shrike to listen on")
+	flag.IntVar(&apiPort, "apiport", cfg.APIPort, "Port for The Shrike's API to listen on")
+	flag.StringVar(&upstreamURL, "upstream", cfg.UpstreamURL, "Upstream URL to forward traffic to")
+	flag.Parse()
 
-	go mux.ServeMux(func(c *mux.Config) {
-		c.DownstreamProxyURL = *d
-		c.ToxyAddress = cfg.ToxyAddress
-		c.ToxyAPIPort = cfg.ToxyAPIPort
-		c.ToxyNamePathSeparator = cfg.ToxyNamePathSeparator
-		c.ToxyClient = toxy.NewClient(c.ToxyAPIAddress())
+	server := api.New(api.Config{
+		Host:                  host,
+		Port:                  port,
+		APIPort:               apiPort,
+		ToxyAddress:           "127.0.0.1",
+		ToxyAPIPort:           8474,
+		ToxyNamePathSeparator: "__",
+		UpstreamURL:           upstreamURL,
 	})
 
-	log.WithFields(log.Fields{
-		"host": cfg.Host,
-		"port": cfg.Port,
-	}).Info("Proxy HTTP server starting")
-	go func() {
-		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
-	}()
-
-	c := mux.Config{
-		DownstreamProxyURL:    *d,
-		ToxyAddress:           cfg.ToxyAddress,
-		ToxyAPIPort:           cfg.ToxyAPIPort,
-		ToxyNamePathSeparator: cfg.ToxyNamePathSeparator,
-	}
-	c.ToxyClient = toxy.NewClient(c.ToxyAPIAddress())
-
-	apiMux := api.New(c)
-	log.WithFields(log.Fields{
-		"host": cfg.Host,
-		"port": cfg.APIPort,
-	}).Info("API HTTP server starting")
-	go func() {
-		errc <- http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), apiMux)
-	}()
-
-	log.Fatal(<-errc)
+	server.Listen()
 }

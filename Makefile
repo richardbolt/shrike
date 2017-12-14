@@ -4,6 +4,9 @@ GOARCH?=amd64
 CGO_ENABLED?=1
 all: test linux
 
+install:
+	glide install
+
 build:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) go build -o bin/server cmd/main.go
 
@@ -14,7 +17,7 @@ mac: GOOS = darwin
 mac: test build
 
 run: all
-	./server
+	./bin/server
 
 run_mac: mac
 	./bin/server

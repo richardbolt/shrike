@@ -3,7 +3,11 @@ The Shrike
 
 The Shrike is a Layer 7 Chaos HTTP/WebSocket proxy that impales it's victims on the Tree of Pain. The Tree of Pain for this Shrike takes the form of [Toxiproxy](http://toxiproxy.io), an excellent TCP network tampering tool.
 
-The Shrike has an API to route http path based traffic through a [Toxiproxy](http://toxiproxy.io) server for resliliency testing and on to a downstream server.
+The Shrike is designed for resliliency testing a whole environment and has an API to route http path based traffic through an embedded [Toxiproxy](http://toxiproxy.io) instance.
+
+The Shrike currently assumes you've put it close at the edge of your service stack thus the current single upstream location which is assumed to be your gateway.
+
+Path prefix matching is used to route differing paths for testing while unmatched paths are sent straight on to the gateway.
 
 Develop
 -------
@@ -45,12 +49,12 @@ make test
 Environment Variables
 ---------------------
 
-`PORT` is the listen port to bind to on the host. Defaults to `8080`.
+`HOST` is the address to bind to on the host. Defaults to `0.0.0.0`.
 
-`API_PORT` is the listen listen port to bind to on the host. Defaults to `8075`.
+`PORT` is the proxy forwarder listen port to bind to on the host. Defaults to `8080`.
 
-`TOXY_ADDRESS` is the IP or DNS address or your [Toxiproxy](http://toxiproxy.io) server. Defaults to `"127.0.0.1"`.
+`API_PORT` is the api listen port to bind to on the host. Defaults to `8075`.
 
-`DOWNSTREAM_PROXY_URL` is the downstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
+`UPSTREAM_URL` is the upstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
 
 Full config in `cfg/env.go`.

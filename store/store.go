@@ -62,6 +62,7 @@ func (s *ProxyStore) Match(path string) (url.URL, bool) {
 		return s.root, false
 	}
 	proxy := p.(*toxy.Proxy)
+	// Hard coding some http in here. TODO: see if we can make this work HTTPS as well.
 	if u, err := url.Parse(fmt.Sprintf("http://%s", proxy.Listen)); err == nil {
 		return *u, true
 	}

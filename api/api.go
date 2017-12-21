@@ -123,6 +123,7 @@ func (s *ShrikeServer) Listen() {
 	r.Post("/routes/{route}/toxics/{toxic}", s.UpdateToxic)
 	r.Delete("/routes/{route}/toxics/{toxic}", s.DeleteToxic)
 	r.Post("/routes/reset", s.ResetToxics)
+	r.Delete("/routes", s.RemoveAllRoutes)
 
 	apiMux.Handle("/", r)
 
@@ -666,6 +667,16 @@ func (s *ShrikeServer) DeleteToxic(w http.ResponseWriter, req *http.Request) {
 // ResetToxics removes toxics from all Routes and reenables all Route proxies
 func (s *ShrikeServer) ResetToxics(w http.ResponseWriter, req *http.Request) {
 	_ = s.client.ResetState()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RemoveAllRoutes removes all routes. A hard reset on everything.
+func (s *ShrikeServer) RemoveAllRoutes(w http.ResponseWriter, req *http.Request) {
+	for _, v := range s.ProxyStore.ToMap() {
+		s.ProxyStore.Delete(v)
+		v.Delete()
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

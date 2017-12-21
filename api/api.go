@@ -64,6 +64,11 @@ type RouteWithProxy struct {
 	Toxy  *toxy.Proxy `json:"toxy"`
 }
 
+// RouteModify holds information for updating a proxy on a route
+type RouteModify struct {
+	Enabled bool `json:"enabled"`
+}
+
 // JSONError is a simple error data structure
 type JSONError struct {
 	Status  string `json:"string"`
@@ -110,7 +115,14 @@ func (s *ShrikeServer) Listen() {
 	r.Get("/routes", s.GetProxies)
 	r.Post("/routes", s.AddProxy)
 	r.Get("/routes/{route}", s.GetRoute)
+	r.Post("/routes/{route}", s.UpdateRoute)
 	r.Delete("/routes/{route}", s.DeleteRoute)
+	r.Get("/routes/{route}/toxics", s.GetToxics)
+	r.Post("/routes/{route}/toxics", s.CreateToxic)
+	r.Get("/routes/{route}/toxics/{toxic}", s.GetToxic)
+	r.Post("/routes/{route}/toxics/{toxic}", s.UpdateToxic)
+	r.Delete("/routes/{route}/toxics/{toxic}", s.DeleteToxic)
+	r.Post("/routes/reset", s.ResetToxics)
 
 	apiMux.Handle("/", r)
 
@@ -273,7 +285,55 @@ func (s *ShrikeServer) GetRoute(w http.ResponseWriter, req *http.Request) {
 	w.Write(b)
 }
 
-// DeleteRoute cfg removes a route from the proxy
+// UpdateRoute in the proxy
+func (s *ShrikeServer) UpdateRoute(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+	body, _ := ioutil.ReadAll(req.Body)
+	doc := &RouteModify{}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		log.Errorf("Error unmarshaling body %s", err)
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Request body is not a valid JSON Proxy update object.",
+		})
+		return
+	}
+
+	route := chi.URLParam(req, "route")
+	if route == "" {
+		log.WithField("Route", route).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"err":   err,
+		}).Info("Error getting proxy from toxiproxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	if doc.Enabled {
+		proxy.Enable()
+	} else if !doc.Enabled {
+		proxy.Disable()
+	}
+
+	b, _ := json.Marshal(proxy)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// DeleteRoute removes a route from the proxy
 func (s *ShrikeServer) DeleteRoute(w http.ResponseWriter, req *http.Request) {
 	route := chi.URLParam(req, "route")
 	if route == "" {
@@ -313,6 +373,299 @@ func (s *ShrikeServer) DeleteRoute(w http.ResponseWriter, req *http.Request) {
 	s.ProxyStore.Delete(proxy)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetToxics for the given route.
+func (s *ShrikeServer) GetToxics(w http.ResponseWriter, req *http.Request) {
+	route := chi.URLParam(req, "route")
+	if route == "" {
+		log.WithField("Route", route).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"err":   err,
+		}).Info("Error getting proxy to list toxics for")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	t, err := proxy.Toxics()
+	b, _ := json.Marshal(t)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// CreateToxic on the given route
+func (s *ShrikeServer) CreateToxic(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+	body, _ := ioutil.ReadAll(req.Body)
+	doc := &toxy.Toxic{}
+	if err := json.Unmarshal(body, &doc); err != nil || doc.Type == "" {
+		log.Errorf("Error unmarshaling body %s", err)
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Request body is not a valid JSON Toxic object.",
+		})
+		return
+	}
+
+	route := chi.URLParam(req, "route")
+	if route == "" {
+		log.WithField("Route", route).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"err":   err,
+		}).Info("Error getting proxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	t, err := proxy.AddToxic(doc.Name, doc.Type, doc.Stream, doc.Toxicity, doc.Attributes)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"err":   err,
+		}).Info("Error adding toxic to proxy")
+		RespondWithError(w, http.StatusInternalServerError, JSONError{
+			Status:  "Toxic error",
+			Message: "Error adding toxic to proxy.",
+		})
+		return
+	}
+
+	b, _ := json.Marshal(t)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// GetToxic from the proxy
+func (s *ShrikeServer) GetToxic(w http.ResponseWriter, req *http.Request) {
+	route := chi.URLParam(req, "route")
+	toxic := chi.URLParam(req, "toxic")
+	if route == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	if toxic == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Toxic must be the name of one of the toxics.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Toxic must be the name of one of the toxics.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error getting proxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	toxics, err := proxy.Toxics()
+	var t *toxy.Toxic
+	for _, v := range toxics {
+		if v.Name == toxic {
+			t = &v
+		}
+	}
+
+	if t == nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error getting toxic")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Toxic",
+			Message: "No toxic by that name.",
+		})
+		return
+	}
+
+	b, _ := json.Marshal(t)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// UpdateToxic in the proxy
+func (s *ShrikeServer) UpdateToxic(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+	body, _ := ioutil.ReadAll(req.Body)
+	doc := &toxy.Toxic{}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		log.Errorf("Error unmarshaling body %s", err)
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Request body is not a valid JSON Toxic object.",
+		})
+		return
+	}
+
+	route := chi.URLParam(req, "route")
+	toxic := chi.URLParam(req, "toxic")
+	if route == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	if toxic == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Toxic must be the name of one of the toxics.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Toxic must be the name of one of the toxics.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error getting proxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	t, err := proxy.UpdateToxic(toxic, doc.Toxicity, doc.Attributes)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error getting proxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Toxic",
+			Message: "No toxic by that name.",
+		})
+		return
+	}
+
+	b, _ := json.Marshal(t)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+// DeleteToxic from the proxy
+func (s *ShrikeServer) DeleteToxic(w http.ResponseWriter, req *http.Request) {
+	route := chi.URLParam(req, "route")
+	toxic := chi.URLParam(req, "toxic")
+	if route == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Route must be the name of one of the proxy paths.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Route must be the name of one of the proxy paths.",
+		})
+		return
+	}
+
+	if toxic == "" {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+		}).Info("Toxic must be the name of one of the toxics.")
+		RespondWithError(w, http.StatusBadRequest, JSONError{
+			Status:  "Bad Request",
+			Message: "Toxic must be the name of one of the toxics.",
+		})
+		return
+	}
+
+	proxy, err := s.client.Proxy(route)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error getting proxy")
+		RespondWithError(w, http.StatusNotFound, JSONError{
+			Status:  "No Proxy",
+			Message: "No proxy by that name.",
+		})
+		return
+	}
+
+	err = proxy.RemoveToxic(toxic)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Route": route,
+			"Toxic": toxic,
+			"err":   err,
+		}).Info("Error removing toxic")
+		RespondWithError(w, http.StatusInternalServerError, JSONError{
+			Status:  "No Toxic removal",
+			Message: "Toxic by that name was not removed.",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ResetToxics removes toxics from all Routes and reenables all Route proxies
+func (s *ShrikeServer) ResetToxics(w http.ResponseWriter, req *http.Request) {
+	_ = s.client.ResetState()
 	w.WriteHeader(http.StatusNoContent)
 }
 

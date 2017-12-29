@@ -104,7 +104,7 @@ func (s *ShrikeServer) Listen() {
 		s.toxiproxy.Listen(s.cfg.ToxyAddress, strconv.Itoa(s.cfg.ToxyAPIPort))
 	}()
 
-	// Shrike API Server on APIPort (8475)
+	// Shrike API Server on APIPort (default 8475)
 	apiMux := http.NewServeMux()
 	r := chi.NewRouter()
 	r.Use(middleware.Heartbeat("/ping"))
@@ -125,7 +125,29 @@ func (s *ShrikeServer) Listen() {
 	r.Post("/routes/reset", s.ResetToxics)
 	r.Delete("/routes", s.RemoveAllRoutes)
 
-	apiMux.Handle("/", r)
+	// Main proxy. Can be on the same port.
+	if s.cfg.APIPort != s.cfg.Port {
+		apiMux.Handle("/routes", r)
+
+		proxyMux := http.NewServeMux()
+		mr := chi.NewRouter()
+		// Chain HTTP Middleware
+		mr.Use(middleware.RequestID)
+		mr.Use(middleware.Recoverer)
+		mr.HandleFunc("/*", s.Proxy)
+		proxyMux.Handle("/", mr)
+
+		go func() {
+			errc <- http.ListenAndServe(fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port), proxyMux)
+		}()
+	} else {
+		r.HandleFunc("/*", s.Proxy)
+		apiMux.Handle("/", r)
+	}
+	log.WithFields(log.Fields{
+		"host": s.cfg.Host,
+		"port": s.cfg.Port,
+	}).Info("Proxy HTTP server starting")
 
 	log.WithFields(log.Fields{
 		"host": s.cfg.Host,
@@ -133,24 +155,6 @@ func (s *ShrikeServer) Listen() {
 	}).Info("API HTTP server starting")
 	go func() {
 		errc <- http.ListenAndServe(fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.APIPort), apiMux)
-	}()
-
-	// Main proxy
-	proxyMux := http.NewServeMux()
-	mr := chi.NewRouter()
-	// Chain HTTP Middleware
-	mr.Use(middleware.Heartbeat("/ping"))
-	mr.Use(middleware.RequestID)
-	mr.Use(middleware.Recoverer)
-	mr.HandleFunc("/*", s.Proxy)
-	proxyMux.Handle("/", mr)
-
-	log.WithFields(log.Fields{
-		"host": s.cfg.Host,
-		"port": s.cfg.Port,
-	}).Info("Proxy HTTP server starting")
-	go func() {
-		errc <- http.ListenAndServe(fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port), proxyMux)
 	}()
 
 	log.Fatal(<-errc)

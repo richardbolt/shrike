@@ -35,6 +35,8 @@ Configuration is by both environment variables and command line flags with comma
 
 `UPSTREAM_URL` is the upstream HTTP/WS proxy we are sitting in front of. Defaults to `http://127.0.0.1`.
 
+`PORT` and `API_PORT` can be the same value and The Shrike proxy and api will be bound to the same port. This means that `/ping` and `/routes*` requests will be intercepted by Shrike and your Shrike control API *may* be exposed.
+
 Develop
 -------
 

@@ -2,9 +2,11 @@
 GOOS?=linux
 GOARCH?=amd64
 CGO_ENABLED?=1
-all: test linux
+REPO_NAME?=richardbolt/shrike
+BUILD_TAG?=latest
+all: test linux docker
 
-install:
+vendor:
 	glide install
 
 build:
@@ -12,6 +14,9 @@ build:
 
 linux: CGO_ENABLED=0
 linux: test build
+
+docker:
+	docker build -t $(REPO_NAME):$(BUILD_TAG) .
 
 mac: GOOS = darwin
 mac: test build

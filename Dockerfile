@@ -1,5 +1,7 @@
 FROM alpine:3.6
 
+ENV PORT=${PORT:-8080} API_PORT=${API_PORT:-8475}
+
 # Root Certificates needed for making https/ssl requests
 RUN apk update && \
   apk add ca-certificates && \
